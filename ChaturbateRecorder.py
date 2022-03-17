@@ -14,7 +14,6 @@ save_directory = Config.get('paths', 'save_directory')
 wishlist = Config.get('paths', 'wishlist')
 logfilename = Config.get('paths', 'logfile')
 interval = int(Config.get('settings', 'checkInterval'))
-genders = re.sub(' ', '', Config.get('settings', 'genders')).split(",")
 directory_structure = Config.get('paths', 'directory_structure').lower()
 postProcessingCommand = Config.get('settings', 'postProcessingCommand')
 try:
@@ -40,10 +39,9 @@ def startRecording(model):
         stream = streams["best"]
         fd = stream.open()
         now = datetime.datetime.now()
-        filePath = directory_structure.format(path=save_directory, model=model, gender=result['broadcaster_gender'],
-                                              seconds=now.strftime("%S"),
-                                              minutes=now.strftime("%M"), hour=now.strftime("%H"),
-                                              day=now.strftime("%d"),
+        filePath = directory_structure.format(path=save_directory, model=model, 
+                                              seconds=now.strftime("%S"), minutes=now.strftime("%M"), 
+                                              hour=now.strftime("%H"), day=now.strftime("%d"), 
                                               month=now.strftime("%m"), year=now.strftime("%Y"))
         directory = filePath.rsplit('/', 1)[0]+'/'
         if not os.path.exists(directory):
@@ -59,10 +57,10 @@ def startRecording(model):
                     f.close()
                     break
         if postProcessingCommand:
-            processingQueue.put({'model':model, 'path':filePath, 'gender':gender})
+            processingQueue.put({'model':model, 'path':filePath})
         elif completed_directory:
             finishedDir = completed_directory.format(path=save_directory, model=model,
-                        gender=gender, seconds=now.strftime("%S"),
+                        seconds=now.strftime("%S"),
                         minutes=now.strftime("%M"),hour=now.strftime("%H"), day=now.strftime("%d"),
                         month=now.strftime("%m"), year=now.strftime("%Y"))
 
@@ -82,9 +80,8 @@ def postProcess():
         model = parameters['model']
         path = parameters['path']
         filename = path.rsplit('/', 1)[1]
-        gender = parameters['gender']
         directory = path.rsplit('/', 1)[0]+'/'
-        subprocess.run(postProcessingCommand.split() + [path, filename, directory, model, gender])
+        subprocess.run(postProcessingCommand.split() + [path, filename, directory, model])
 
 def getOnlineModels():
     online = []
@@ -121,20 +118,7 @@ def getOnlineModels():
     except Exception as e:
         print(e)
         pass
-#    for gender in genders:
-#        try:
-#            data = {'categories': gender, 'num': 127}
-#            result = requests.post("https://roomlister.stream.highwebmedia.com/session/start/", data=data).json()
-#            length = len(result['rooms'])
-#            online.extend([m['username'].lower() for m in result['rooms']])
-#            data['key'] = result['key']
-#            while length == 127:
-#                result = requests.post("https://roomlister.stream.highwebmedia.com/session/next/", data=data).json()
-#                length = len(result['rooms'])
-#                data['key'] = result['key']
-#                online.extend([m['username'].lower() for m in result['rooms']])
-#        except:
-#            break
+        
     f = open(wishlist, 'r')
     wanted = list(set(f.readlines()))
     wanted = [m.strip('\n').split('chaturbate.com/')[-1].lower().strip().replace('/', '') for m in wanted]
@@ -160,12 +144,6 @@ def onlineModelsIsChanged(previousOnlineModels, newOnlineModels):
     return False
 
 if __name__ == '__main__':
-    AllowedGenders = ['female', 'male', 'trans', 'couple']
-    for gender in genders:
-        if gender.lower() not in AllowedGenders:
-            print(gender, "is not an acceptable gender, options are: female, male, trans, and couple - please correct your config file")
-            exit()
-    genders = [a.lower()[0] for a in genders]
     print()
     if postProcessingCommand != "":
         processingQueue = Queue()
@@ -174,14 +152,11 @@ if __name__ == '__main__':
             t = Thread(target=postProcess)
             postprocessingWorkers.append(t)
             t.start()
-    # print ascii escape character to move the cursor in bash, we will not use this in our Docker image
-    #sys.stdout.write("\033[F")
     logfile = open(logfilename, "a+")
     logfile.write("\n\n" + now() + " ########## Starting ChaturbateRecorder4Docker ##########\n")
     logfile.close()
     recordingModels = []
     while True:
-        #sys.stdout.write("\033[K")
         getOnlineModels()
         print(now(), " The following models are being recorded: {}".format(recording), end="\r")
         if onlineModelsIsChanged(recordingModels, recording):
@@ -190,13 +165,10 @@ if __name__ == '__main__':
             logfile.close()
             print( now(),"{} model(s) are being recorded. Getting list of online models now".format(len(recording)))        
             recordingModels = recording
-#        sys.stdout.write("\033[K")
 #        getOnlineModels()
-#        sys.stdout.write("\033[F")
 #        for i in range(interval, 0, -1):
 #            sys.stdout.write("\033[K")
 #            print(now(), "{} model(s) are being recorded. Next check in {} seconds".format(len(recording), i))
 #            sys.stdout.write("\033[K")
 #            print("The following models are being recorded: {}".format(recording), end="\r")
         time.sleep(interval)
-#            sys.stdout.write("\033[F")
